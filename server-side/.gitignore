@@ -1,0 +1,12 @@
+node_modules/
+.env
+
+**/ios/Flutter/Debug.xcconfig
+**/ios/Flutter/Release.xcconfig
+**/ios/Podfile
+**/ios/Podfile.lock
+**/ios/.symlinks/
+**/macos/Flutter/
+**/macos/Podfile
+**/macos/Podfile.lock
+**/.xcworkspace/
