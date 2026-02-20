@@ -20,23 +20,15 @@ class AuthService {
 
   Future<void> saveUser(User user) async {
     try {
-
-
       await _storage.write(key: _keyId, value: user.id);
       await _storage.write(key: _keyUsername, value: user.username);
       await _storage.write(key: _keyEmail, value: user.email);
-      
-      // Sanitization Check (Redundant but professional)
-      final safeDisplayName = user.displayName?.replaceAll(RegExp(r'[<>]'), '') ?? "";
-      await _storage.write(key: _keyDisplayName, value: safeDisplayName);
-      
+      await _storage.write(key: _keyDisplayName, value: user.displayName ?? "");
       await _storage.write(key: _keyProfilePic, value: user.profilePicture ?? "");
     } catch (e) {
       print("Error saving user data: $e");
     }
   }
-
-
 
   Future<User?> getUser() async {
     try {
@@ -50,19 +42,15 @@ class AuthService {
         return null;
       }
 
-
-
-      final user = User(
+      return User(
         id: id,
         username: username,
         email: email,
         displayName: displayName, 
         profilePicture: profilePic,
       );
-
-      return user;
     } catch (e) {
-      print("[AuthService] Error reading user data: $e");
+      print("Error reading user data: $e");
       return null;
     }
   }

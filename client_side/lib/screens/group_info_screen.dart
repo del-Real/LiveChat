@@ -101,17 +101,13 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final chatService = context.watch<ChatService>();
     final textColor = Theme.of(context).textTheme.bodyLarge?.color;
     final secondaryTextColor = textColor?.withOpacity(0.6);
-    final myId = chatService.userId ?? '';
-    final partner = _currentChat.isGroup ? null : _currentChat.getChatPartner(myId);
-    final isBlocked = partner != null && chatService.blockedUsers.contains(partner.id);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(_currentChat.isGroup ? 'Group Info' : 'User Info',
+        title: Text('Group Info',
             style: TextStyle(
                 color: Theme.of(context).appBarTheme.foregroundColor)),
         iconTheme:
@@ -130,28 +126,25 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                   backgroundImage: (_currentChat.profilePicture != null &&
                           _currentChat.profilePicture!.isNotEmpty)
                       ? NetworkImage(_currentChat.profilePicture!)
-                      : (partner?.profilePicture != null && partner!.profilePicture!.isNotEmpty)
-                        ? NetworkImage(partner.profilePicture!)
-                        : null,
+                      : null,
                   child: (_currentChat.profilePicture == null ||
-                          _currentChat.profilePicture!.isEmpty) && (partner?.profilePicture == null || partner!.profilePicture!.isEmpty)
-                      ? Icon(_currentChat.isGroup ? Icons.group : Icons.person, size: 70, color: Colors.white)
+                          _currentChat.profilePicture!.isEmpty)
+                      ? const Icon(Icons.group, size: 70, color: Colors.white)
                       : null,
                 ),
-                if (_currentChat.isGroup)
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: CircleAvatar(
-                      backgroundColor: AppPrimaryColor,
-                      radius: 20,
-                      child: IconButton(
-                        icon: const Icon(Icons.camera_alt,
-                            color: Colors.white, size: 20),
-                        onPressed: _updatePhoto,
-                      ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: CircleAvatar(
+                    backgroundColor: AppPrimaryColor,
+                    radius: 20,
+                    child: IconButton(
+                      icon: const Icon(Icons.camera_alt,
+                          color: Colors.white, size: 20),
+                      onPressed: _updatePhoto,
                     ),
                   ),
+                ),
                 if (_isUpdating)
                   const Positioned.fill(
                       child: Center(
@@ -163,90 +156,46 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
           const SizedBox(height: 25),
           Center(
             child: Text(
-              _currentChat.isGroup ? _currentChat.name : (partner?.resolvedName ?? 'Unknown'),
+              _currentChat.name,
               style: TextStyle(
                   fontSize: 26, fontWeight: FontWeight.bold, color: textColor),
             ),
           ),
-          if (!_currentChat.isGroup && partner != null)
-            Center(
-              child: Text(
-                partner.email,
-                style: TextStyle(color: secondaryTextColor, fontSize: 16),
-              ),
-            ),
           const SizedBox(height: 40),
-          if (_currentChat.isGroup) ...[
-            Text('MEMBERS (${_currentChat.members.length})',
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: secondaryTextColor,
-                    fontSize: 13)),
-            const Divider(),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _currentChat.members.length,
-              itemBuilder: (context, index) {
-                final member = _currentChat.members[index];
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: CircleAvatar(
-                    backgroundColor: AppPrimaryColor,
-                    backgroundImage: (member.profilePicture != null &&
-                            member.profilePicture!.isNotEmpty)
-                        ? NetworkImage(member.profilePicture!)
-                        : null,
-                    child: (member.profilePicture == null ||
-                            member.profilePicture!.isEmpty)
-                        ? Text(member.username[0].toUpperCase(),
-                            style: const TextStyle(color: Colors.white))
-                        : null,
-                  ),
-                  title: Text(member.displayName ?? member.username,
-                      style: TextStyle(
-                          color: textColor, fontWeight: FontWeight.w600)),
-                  subtitle: Text(member.email,
-                      style: TextStyle(color: secondaryTextColor, fontSize: 12)),
-                );
-              },
-            ),
-          ] else if (partner != null) ...[
-            const Divider(),
-            ListTile(
-              leading: Icon(isBlocked ? Icons.check_circle : Icons.block, 
-                           color: isBlocked ? Colors.green : Colors.red),
-              title: Text(isBlocked ? 'Unblock User' : 'Block User',
-                         style: TextStyle(color: isBlocked ? Colors.green : Colors.red)),
-              onTap: () async {
-                if (isBlocked) {
-                  await chatService.unblockUser(partner.id);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('User unblocked')),
-                  );
-                } else {
-                  final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('Block User?'),
-                      content: const Text('Blocked users cannot send you messages or see your status.'),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Block', style: TextStyle(color: Colors.red))),
-                      ],
-                    ),
-                  );
-                  if (confirm == true) {
-                    await chatService.blockUser(partner.id);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('User blocked')),
-                    );
-                  }
-                }
-              },
-            ),
-            const Divider(),
-          ],
+          Text('MEMBERS (${_currentChat.members.length})',
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: secondaryTextColor,
+                  fontSize: 13)),
+          const Divider(),
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _currentChat.members.length,
+            itemBuilder: (context, index) {
+              final member = _currentChat.members[index];
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(
+                  backgroundColor: AppPrimaryColor,
+                  backgroundImage: (member.profilePicture != null &&
+                          member.profilePicture!.isNotEmpty)
+                      ? NetworkImage(member.profilePicture!)
+                      : null,
+                  child: (member.profilePicture == null ||
+                          member.profilePicture!.isEmpty)
+                      ? Text(member.username[0].toUpperCase(),
+                          style: const TextStyle(color: Colors.white))
+                      : null,
+                ),
+                title: Text(member.displayName ?? member.username,
+                    style: TextStyle(
+                        color: textColor, fontWeight: FontWeight.w600)),
+                subtitle: Text(member.email,
+                    style: TextStyle(color: secondaryTextColor, fontSize: 12)),
+              );
+            },
+          ),
         ],
       ),
     );

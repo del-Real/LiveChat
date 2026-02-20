@@ -1,19 +1,13 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/chat_service.dart';
 import '../theme/app_colors.dart';
 import '../helpers/chat_widgets.dart';
 import '../helpers/live_typing_panel.dart';
 import '../models/chat.dart';
-import '../models/user.dart';
-import '../models/message.dart';
 import 'add_members_screen.dart';
 import 'group_info_screen.dart';
-import '../helpers/voice_recorder.dart';
-
 
 class ChatScreen extends StatefulWidget {
   final String chatId;
@@ -28,19 +22,11 @@ class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
 
   ChatService? _chatService;
-  Timer? _statusRefreshTimer;
-  bool _showRecorder = false;
-
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-
-    // Refresh last seen status every 60 seconds
-    _statusRefreshTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      if (mounted) setState(() {});
-    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final service = context.read<ChatService>();
@@ -67,7 +53,6 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
-    _statusRefreshTimer?.cancel();
     _scrollController.removeListener(_onScroll);
     _chatService?.leaveChat(widget.chatId);
     _messageController.dispose();
@@ -101,109 +86,6 @@ class _ChatScreenState extends State<ChatScreen> {
         chatService.sendMessage(widget.chatId, "", imageUrl: imageUrl);
       }
     }
-  }
-
-  void _showOptionsSheet(BuildContext context, MessageModel msg) {
-    final bool isMe =
-        msg.senderId == context.read<ChatService>().userId;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Theme.of(context).cardColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: Icon(
-                  msg.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-                  color: Colors.orange),
-              title: Text(msg.isPinned ? "Unpin Message" : "Pin Message"),
-              onTap: () {
-                Navigator.pop(context);
-                final wasPinned = msg.isPinned;
-                context
-                    .read<ChatService>()
-                    .togglePinnedMessage(widget.chatId, msg.id);
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(wasPinned
-                        ? "Message unpinned"
-                        : "Message pinned to top"),
-                    duration: const Duration(seconds: 2),
-                    backgroundColor: Colors.orange,
-                  ),
-                );
-              },
-            ),
-            if (isMe) ...[
-              ListTile(
-                leading: const Icon(Icons.edit_outlined),
-                title: const Text("Edit Message"),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showEditDialog(context, msg);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.delete_outline, color: AppErrorColor),
-                title: const Text("Delete Message",
-                    style: TextStyle(color: AppErrorColor)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showDeleteDialog(context, msg.id);
-                },
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showEditDialog(BuildContext context, MessageModel msg) {
-    final TextEditingController editController =
-        TextEditingController(text: msg.text);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        title: const Text("Edit Message"),
-        content: TextField(
-          controller: editController,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: "Enter new message...",
-          ),
-          maxLines: null,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
-          ),
-          TextButton(
-            onPressed: () {
-              final newText = editController.text.trim();
-              if (newText.isNotEmpty && newText != msg.text) {
-                context
-                    .read<ChatService>()
-                    .editMessage(msg.id, widget.chatId, newText);
-              }
-              Navigator.pop(context);
-            },
-            child: const Text("Save",
-                style: TextStyle(
-                    color: AppPrimaryColor, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
   }
 
   void _showDeleteDialog(BuildContext context, String messageId) {
@@ -325,10 +207,6 @@ class _ChatScreenState extends State<ChatScreen> {
       },
     );
 
-    final partner = chat.isGroup ? null : chat.getChatPartner(myId);
-    final isBlocked =
-        partner != null && chatService.blockedUsers.contains(partner.id);
-
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -392,71 +270,6 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       body: Column(
         children: [
-          if (chatService.pinnedMessages.isNotEmpty)
-            InkWell(
-              onTap: () {
-                final msg = chatService.pinnedMessages.first;
-                final index =
-                    chatService.messages.indexWhere((m) => m.id == msg.id);
-                if (index != -1) {
-                  _scrollController.animateTo(
-                    index * 100.0, // Fixed height estimate for simplicity
-                    duration: const Duration(milliseconds: 500),
-                    curve: Curves.easeInOut,
-                  );
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  border: Border(
-                    bottom: BorderSide(
-                        color: Theme.of(context).dividerColor.withOpacity(0.1)),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.push_pin, color: Colors.orange, size: 20),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text("Pinned Message",
-                              style: TextStyle(
-                                  color: Colors.orange,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12)),
-                          Text(
-                            chatService.pinnedMessages.first.text.isEmpty
-                                ? "Photo"
-                                : chatService.pinnedMessages.first.text,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                                color: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.color
-                                    ?.withOpacity(0.7),
-                                fontSize: 13),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, size: 16),
-                      onPressed: () {
-                        chatService.togglePinnedMessage(
-                            widget.chatId, chatService.pinnedMessages.first.id);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
@@ -487,14 +300,11 @@ class _ChatScreenState extends State<ChatScreen> {
                       ? (msg.senderName ?? _getMemberName(chat, msg.senderId))
                       : null,
                   imageUrl: msg.imageUrl,
-                  audioUrl: msg.audioUrl,
                   time: msg.timestamp,
-
                   status: msg.status,
                   isSystemMessage: isSystemMessage,
-                  isEdited: msg.isEdited,
-                  isPinned: msg.isPinned,
-                  onLongPress: () => _showOptionsSheet(context, msg),
+                  onLongPress:
+                      isMe ? () => _showDeleteDialog(context, msg.id) : null,
                 );
               },
             ),
@@ -502,20 +312,6 @@ class _ChatScreenState extends State<ChatScreen> {
           LiveTypingPanel(typingUsers: chatService.typingUsers),
           if (chat.isMessagingDisabled)
             _buildDisabledBanner(context)
-          else if (isBlocked)
-            _buildBlockedBanner(context, partner, chatService)
-          else if (_showRecorder)
-            VoiceRecorder(
-              onStop: (path) async {
-                setState(() => _showRecorder = false);
-                final audioUrl = await chatService.uploadAudio(path);
-                if (audioUrl != null) {
-                  chatService.sendMessage(widget.chatId, "",
-                      audioUrl: audioUrl);
-                }
-              },
-              onCancel: () => setState(() => _showRecorder = false),
-            )
           else
             _ChatInputBar(
               controller: _messageController,
@@ -523,39 +319,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   chatService.sendTypingUpdate(widget.chatId, text),
               onSend: () => _sendMessageAction(chatService),
               onAdd: () => _pickAndSendImage(chatService),
-              onRecordStart: () => setState(() => _showRecorder = true),
             ),
-
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBlockedBanner(
-      BuildContext context, User partner, ChatService chatService) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
-      ),
-      child: Column(
-        children: [
-          const Icon(Icons.block, color: Colors.red, size: 24),
-          const SizedBox(height: 12),
-          Text(
-            "You have blocked this user",
-            style: TextStyle(
-                color: Theme.of(context).textTheme.bodyLarge?.color,
-                fontWeight: FontWeight.bold,
-                fontSize: 14),
-          ),
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: () => chatService.unblockUser(partner.id),
-            child: const Text("Unblock to send messages"),
-          ),
         ],
       ),
     );
@@ -720,28 +484,6 @@ class _ChatAppBarTitle extends StatelessWidget {
     } else if (!isGroup) {
       statusText = isPartnerOnline ? 'Online' : 'Offline';
       statusColor = isPartnerOnline ? AppSuccessColor : Colors.grey;
-
-      if (!isPartnerOnline && partner != null) {
-        var lastSeen = chatService.userLastSeen[partner.id];
-        if (lastSeen != null) {
-          // Ensure we are comparing local time to local time
-          if (lastSeen.isUtc) {
-            lastSeen = lastSeen.toLocal();
-          }
-          final now = DateTime.now();
-          final diff = now.difference(lastSeen);
-
-          if (diff.inMinutes < 1) {
-            statusText = 'Last seen just now';
-          } else if (diff.inMinutes < 60) {
-            statusText = 'Last seen ${diff.inMinutes}m ago';
-          } else if (diff.inHours < 24) {
-            statusText = 'Last seen ${diff.inHours}h ago';
-          } else {
-            statusText = 'Last seen ${DateFormat('MMM d, HH:mm').format(lastSeen)}';
-          }
-        }
-      }
     } else {
       statusText = '${chat.members.length} members';
       statusColor = Colors.grey;
@@ -790,12 +532,14 @@ class _ChatAppBarTitle extends StatelessWidget {
         Expanded(
           child: GestureDetector(
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => GroupInfoScreen(chat: chat),
-                ),
-              );
+              if (chat.isGroup) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => GroupInfoScreen(chat: chat),
+                  ),
+                );
+              }
             },
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -839,17 +583,13 @@ class _ChatInputBar extends StatelessWidget {
   final Function(String) onChanged;
   final VoidCallback onSend;
   final VoidCallback onAdd;
-  final VoidCallback onRecordStart;
-
 
   const _ChatInputBar({
     required this.controller,
     required this.onChanged,
     required this.onSend,
     required this.onAdd,
-    required this.onRecordStart,
   });
-
 
   @override
   Widget build(BuildContext context) {
@@ -884,35 +624,18 @@ class _ChatInputBar extends StatelessWidget {
                 ),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.mic_none_rounded, color: AppPrimaryColor),
-                  onPressed: onRecordStart,
-                ),
               ),
             ),
           ),
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: controller,
-            builder: (context, value, child) {
-              final isTextEmpty = value.text.trim().isEmpty;
-              if (isTextEmpty) return const SizedBox.shrink();
-              return Padding(
-                padding: const EdgeInsets.only(left: 8.0),
-                child: CircleAvatar(
-                  backgroundColor: AppPrimaryColor,
-                  radius: 22,
-                  child: IconButton(
-                    icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-                    onPressed: onSend,
-                  ),
-                ),
-              );
-            },
+          const SizedBox(width: 8),
+          CircleAvatar(
+            backgroundColor: AppPrimaryColor,
+            radius: 22,
+            child: IconButton(
+              icon: const Icon(Icons.send, color: Colors.white, size: 20),
+              onPressed: onSend,
+            ),
           ),
-
-
-
-
         ],
       ),
     );

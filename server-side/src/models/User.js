@@ -48,5 +48,4 @@ const UserSchema = new mongoose.Schema(
 
 UserSchema.index({ chats: 1 });
 
-export const User = mongoose.model('User', UserSchema); // create user using user scema from the mongo 
-//to allow me to use it in the other files
+export const User = mongoose.model('User', UserSchema);

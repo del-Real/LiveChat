@@ -13,21 +13,16 @@ class ContactProvider extends ChangeNotifier {
 
   List<ContactModel> _contacts = [];
   List<ContactModel> _pendingRequests = [];
-  List<ContactModel> _sentRequests = []; // Stores requests I sent
   bool _isLoading = false;
 
   // Public getters
   List<ContactModel> get contacts => _contacts;
   List<ContactModel> get pendingRequests => _pendingRequests;
-  List<ContactModel> get sentRequests => _sentRequests;
-
   int get pendingCount => _pendingRequests.length;
-  int get sentCount => _sentRequests.length;
   bool get isLoading => _isLoading;
 
   bool get hasContacts => _contacts.isNotEmpty;
   bool get hasPendingRequests => _pendingRequests.isNotEmpty;
-  bool get hasSentRequests => _sentRequests.isNotEmpty;
 
   // Add method to set socket
   void setSocket(IO.Socket? newSocket) {
@@ -55,12 +50,6 @@ class ContactProvider extends ChangeNotifier {
         final acceptedContact = ContactModel.fromJson(data);
         _pendingRequests.removeWhere((r) => r.id == acceptedContact.id);
 
-        // Also remove from sent requests if present (e.g. if the other person accepted MY request)
-        // Wait, if they accept, I get 'contact:request_accepted' too?
-        // Yes, verify server code.
-        _sentRequests
-            .removeWhere((r) => r.contact.id == acceptedContact.contact.id);
-
         if (!_contacts.any((c) => c.contact.id == acceptedContact.contact.id)) {
           _contacts.insert(0, acceptedContact);
         }
@@ -75,14 +64,10 @@ class ContactProvider extends ChangeNotifier {
     socket!.on('contact:deleted', (data) {
       try {
         final String deletedByUserId = data['userId'];
+        final String contactId = data['contactId'];
 
         // Remove from contacts list
         _contacts.removeWhere((c) => c.contact.id == deletedByUserId);
-
-        // Also clean up requests if any
-        _pendingRequests.removeWhere((r) => r.contact.id == deletedByUserId);
-        _sentRequests.removeWhere((r) => r.contact.id == deletedByUserId);
-
         notifyListeners();
 
         print('Contact removed: $deletedByUserId removed you');
@@ -98,7 +83,6 @@ class ContactProvider extends ChangeNotifier {
     await Future.wait([
       fetchContacts(),
       fetchPendingRequests(),
-      fetchSentRequests(),
     ]);
     _setLoading(false);
   }
@@ -107,7 +91,6 @@ class ContactProvider extends ChangeNotifier {
   void logout() {
     _contacts = [];
     _pendingRequests = [];
-    _sentRequests = [];
     _isLoading = false;
     socket = null;
     notifyListeners();
@@ -124,20 +107,9 @@ class ContactProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> fetchSentRequests() async {
-    try {
-      _sentRequests = await _contactService.getSentContactRequests();
-      notifyListeners();
-    } catch (e) {
-      print("Error fetching sent requests: $e");
-    }
-  }
-
   // Contact requests
   Future<void> sendRequest(String username) async {
     await _contactService.sendContactRequest(username);
-    // Refresh sent requests list optimistically or by fetching
-    await fetchSentRequests();
   }
 
   void addPendingRequest(ContactModel request) {
@@ -149,14 +121,6 @@ class ContactProvider extends ChangeNotifier {
 
   void removePendingRequest(ContactId requestId) {
     _pendingRequests.removeWhere((r) => r.id == requestId);
-    notifyListeners();
-  }
-
-  // Cancel a sent request
-  Future<void> cancelSentRequest(ContactModel request) async {
-    // Deleting the contact record deletes the request
-    await _contactService.deleteContact(request.contact.id);
-    _sentRequests.removeWhere((r) => r.id == request.id);
     notifyListeners();
   }
 

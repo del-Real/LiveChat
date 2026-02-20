@@ -12,16 +12,16 @@ import {
 
 const router = express.Router();
 
-
+// --- Registration & Verification ---
 router.post('/create', createUser);
 router.get('/verify-email', verifyEmail);
 router.post('/resend-verification', resendVerificationEmail);
 
-
+// --- Password Management ---
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password/:token', resetPassword);
 
-
+// --- Authentication & Discovery ---
 router.post('/login', loginUser);
 router.get('/search', searchUserByExactUsername); 
 

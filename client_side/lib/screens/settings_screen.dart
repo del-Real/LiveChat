@@ -96,8 +96,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    // Determine what name to display
     final displayedName = _currentUser?.displayName != null &&
             _currentUser!.displayName!.trim().isNotEmpty
         ? _currentUser!.displayName!
@@ -121,6 +123,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          // Profile Picture Section
           Center(
             child: Stack(
               children: [
@@ -161,6 +164,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 20),
 
+          // Display current name prominently
           Center(
             child: Column(
               children: [
@@ -187,6 +191,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 30),
 
+          // Username Field
           TextField(
             enabled: false,
             decoration: InputDecoration(
@@ -244,6 +249,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 20),
 
+          // Display Name Field
           TextField(
             controller: _nameController,
             decoration: InputDecoration(
@@ -333,6 +339,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const Divider(),
           const SizedBox(height: 10),
 
+          // Settings Section Header
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             child: Text(
@@ -347,32 +354,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
 
           // Dark Mode Toggle
-          Selector<ThemeProvider, bool>(
-            selector: (_, provider) => provider.isDarkMode,
-            builder: (context, isDark, _) {
-              return SwitchListTile(
-                title: const Text('Dark Mode'),
-                subtitle: Text(
-                  isDark ? 'Dark theme enabled' : 'Light theme enabled',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                secondary: Icon(
-                  isDark ? Icons.dark_mode : Icons.light_mode,
-                ),
-                value: isDark,
-                onChanged: (val) => context.read<ThemeProvider>().toggleTheme(val),
-                activeThumbColor: AppPrimaryColor,
-              );
-            },
+          SwitchListTile(
+            title: const Text('Dark Mode'),
+            subtitle: Text(
+              themeProvider.isDarkMode
+                  ? 'Dark theme enabled'
+                  : 'Light theme enabled',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
+            secondary: Icon(
+              themeProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode,
+            ),
+            value: themeProvider.isDarkMode,
+            onChanged: themeProvider.toggleTheme,
+            activeColor: AppPrimaryColor,
           ),
 
           const SizedBox(height: 10),
           const Divider(),
           const SizedBox(height: 10),
 
+          // Account Section Header
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             child: Text(
@@ -386,6 +391,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
 
+          // Email Display
           ListTile(
             leading: const Icon(Icons.email_outlined),
             title: const Text('Email'),
@@ -398,6 +404,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
 
+          // Logout Button
           ListTile(
             leading: const Icon(Icons.logout),
             title: const Text('Log Out'),

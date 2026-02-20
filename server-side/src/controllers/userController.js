@@ -57,7 +57,7 @@ export const createUser = async (req, res) => {
     });
 
     //Send Email
-    await sendVerificationEmail(email, verificationToken);  //send the email with the token to the user 
+    await sendVerificationEmail(email, verificationToken);
 
     res.status(201).json({
       message: "User created successfully. Please verify your email.",

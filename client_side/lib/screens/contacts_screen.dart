@@ -61,14 +61,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
     }
     setState(() => _isSendingRequest = true);
     try {
-      // 1. Send request via service
       final message = await _contactService.sendContactRequest(username);
-      
-      // 2. Refresh the provider's sent requests list so it shows up immediately in the Sent tab
-      if (mounted) {
-        await context.read<ContactProvider>().fetchSentRequests();
-      }
-
       if (mounted) {
         _usernameController.clear();
         _showSnackBar(message);
@@ -118,61 +111,26 @@ class _ContactsScreenState extends State<ContactsScreen> {
           'Contacts',
           style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
         ),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Pending Requests (Received)
-            if (provider.pendingCount > 0) ...[
-              GestureDetector(
-                onTap: () => context.push('/contacts/requests'),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppPrimaryColor,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.mark_email_unread_outlined, color: Colors.white, size: 16),
-                      const SizedBox(width: 4),
-                      Text('${provider.pendingCount}',
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12)),
-                    ],
-                  ),
-                ),
+        if (provider.pendingCount > 0)
+          GestureDetector(
+            onTap: () => context.push('/contacts/requests'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppPrimaryColor,
+                borderRadius: BorderRadius.circular(12),
               ),
-              const SizedBox(width: 8),
-            ],
-            
-            // Sent Requests & All Requests Button
-            GestureDetector(
-              onTap: () => context.push('/contacts/requests'),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  border: Border.all(color: AppPrimaryColor.withOpacity(0.3)),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.person_add_alt_1,
-                        color: Theme.of(context).primaryColor, size: 18),
-                    const SizedBox(width: 8),
-                    Text('Requests',
-                        style: TextStyle(
-                            color: Theme.of(context).primaryColor,
-                            fontWeight: FontWeight.bold)),
-                  ],
-                ),
+              child: Row(
+                children: [
+                  const Icon(Icons.person_add, color: Colors.white, size: 18),
+                  const SizedBox(width: 8),
+                  Text('${provider.pendingCount} Requests',
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
       ],
     );
   }

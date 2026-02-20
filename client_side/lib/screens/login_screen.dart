@@ -112,8 +112,7 @@ class LoginScreenState extends State<LoginScreen> {
               isPassword: true,
             ),
 
-            const SizedBox(height: 20),
-
+            //Forgot Password
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton(
@@ -160,7 +159,7 @@ class LoginScreenState extends State<LoginScreen> {
   }
 }
 
-
+// helper widget
 class _ForgotPasswordButton extends StatelessWidget {
   const _ForgotPasswordButton();
 

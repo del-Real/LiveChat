@@ -45,14 +45,14 @@ class ChatTile extends StatelessWidget {
     final bool isLargeScreen = MediaQuery.of(context).size.width > 500;
     final lastMsg = chat.lastMessage;
 
-    final myId = context.read<ChatService>().userId ?? '';
-    
+    final chatService = context.watch<ChatService>();
+    final myId = chatService.userId ?? '';
     bool isOnline = false;
+
     if (!chat.isGroup) {
       final partner = chat.getChatPartner(myId);
       if (partner != null) {
-        isOnline = context.select<ChatService, bool>(
-            (s) => s.userPresence[partner.id] ?? false);
+        isOnline = chatService.userPresence[partner.id] ?? false;
       }
     }
 
@@ -68,7 +68,7 @@ class ChatTile extends StatelessWidget {
       },
       background: _buildSwipeBackground(
         color: Colors.teal.withOpacity(0.8),
-        icon: chat.isPinned ? Icons.push_pin_outlined : Icons.push_pin,
+        icon: chat.isFavorite ? Icons.push_pin_outlined : Icons.push_pin,
         alignment: Alignment.centerLeft,
       ),
       secondaryBackground: _buildSwipeBackground(
@@ -80,9 +80,16 @@ class ChatTile extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
           color: chat.unreadCount > 0
-              ? const Color(0x1A8A2BE2)
+              ? AppPrimaryColor.withOpacity(0.1)
               : Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: ListTile(
           onTap: onTap,
@@ -163,7 +170,8 @@ class ChatTile extends StatelessWidget {
                 color: Theme.of(context)
                     .textTheme
                     .bodySmall
-                    ?.color,
+                    ?.color
+                    ?.withOpacity(0.5),
                 fontSize: 12),
           ),
       ],
@@ -191,10 +199,13 @@ class ChatTile extends StatelessWidget {
                     color: Theme.of(context)
                         .textTheme
                         .bodyMedium
-                        ?.color,
+                        ?.color
+                        ?.withOpacity(0.6),
                     fontSize: 14),
               ),
             ),
+          if (chat.isFavorite)
+            const Icon(Icons.push_pin, color: Colors.tealAccent, size: 14),
           if (chat.isArchived)
             const Icon(Icons.archive, color: Colors.blue, size: 14),
         ],
@@ -213,7 +224,7 @@ class ChatTile extends StatelessWidget {
             children: [
               IconButton(
                   icon: Icon(
-                      chat.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                      chat.isFavorite ? Icons.push_pin : Icons.push_pin_outlined,
                       color: Colors.tealAccent),
                   onPressed: onToggleFavorite),
               IconButton(
@@ -224,11 +235,6 @@ class ChatTile extends StatelessWidget {
                   icon: const Icon(Icons.delete_outline, color: AppErrorColor),
                   onPressed: onDelete),
             ],
-          ),
-        if (chat.isPinned)
-          const Padding(
-            padding: EdgeInsets.only(bottom: 4),
-            child: Icon(Icons.push_pin, color: Colors.tealAccent, size: 16),
           ),
         if (chat.unreadCount > 0)
           Container(

@@ -20,8 +20,12 @@ class SectionHeader extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: Container(
-            height: 1,
-            color: AppPrimaryColor,
+            height: 3,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppPrimaryColor, AppPrimaryColor.withOpacity(0.0)],
+              ),
+            ),
           ),
         ),
       ],

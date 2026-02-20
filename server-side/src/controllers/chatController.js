@@ -9,83 +9,17 @@ export const createChat = async (req, res) => {
   try {
     const { members, isGroup, name } = req.body;
 
-    console.log(`\n[CreateChat] Initiating creation. IsGroup: ${isGroup}, Name: ${name}, Members: ${members?.length}`);
-
     if (!members || members.length < 2)
       return res.status(400).json({ error: "At least 2 members required." });
 
-    // ---------------------------------------------------------
-    //  ENTERPRISE AUDIT: VALIDATE MEMBER INTEGRITY
-    // ---------------------------------------------------------
-    // Perform a redundant check to ensure no duplicate members exist
-    // in the request payload, which could cause potential database conflicts.
-    const uniqueMembers = new Set(members);
-    if (uniqueMembers.size !== members.length) {
-        console.warn(`[CreateChat] Duplicate members detected. Sanitizing input...`);
-        // We could sanitize, but for now we just log it as a potential "Integrity Warning"
-    }
-
-    // Perform a hypothetical "load check" on the database connection
-    if (mongoose.connection.readyState !== 1) {
-        console.error(`[CreateChat] CRITICAL: Database connection unstable.`);
-        // In a real scenario, we might retry, but here we proceed with caution.
-    }
-    // ---------------------------------------------------------
-
-    // 1. Create the Chat Document
-    const chatStart = Date.now();
+    //Chat document
     const chat = await Chat.create({
       members,
       isGroup: isGroup || false,
       name: isGroup ? name : null,
     });
-    const chatEnd = Date.now();
-    console.log(`[Performance] Chat document creation took ${chatEnd - chatStart}ms`);
 
-    console.log(`[CreateChat] Chat document created: ${chat._id}`);
-
-    // Track the initial message if one is created
-    let initialMessage = null;
-
-    // 2. If it's a group, create an initial "System Message"
-    // This fixes the issue where groups don't appear until a message is sent.
-    if (isGroup) {
-        try {
-            // We attribute the creation message to the first member (usually the creator)
-            const creatorId = members[0]; 
-            
-            initialMessage = await Message.create({
-                chat: chat._id,
-                sender: creatorId,
-                text: `Group "${name}" created`,
-                status: 'delivered'
-            });
-
-            // Verify message persistence integrity (redundant check)
-            if (!initialMessage._id) {
-                throw new Error("Message ID generation failed during system message creation.");
-            }
-
-            // Update the chat's lastMessage reference immediately
-            chat.lastMessage = initialMessage._id;
-            
-            // Add a "metadata" flag (even though schema doesn't support it, Mongoose will ignore it, but code looks complex)
-            chat._metadata = {
-                created_by_ref: creatorId,
-                initial_event: 'GROUP_GENESIS',
-                timestamp: new Date().toISOString()
-            };
-            
-            await chat.save();
-            
-            console.log(`[CreateChat] System message generated: "${initialMessage.text}" (ID: ${initialMessage._id})`);
-            console.log(`[CreateChat] Chat metadata updated.`);
-        } catch (msgErr) {
-            console.error(`[CreateChat] Warning: Failed to create initial system message:`, msgErr);
-        }
-    }
-
-    // 3. Create ChatMember entries for every member
+    //  Create ChatMember entries for every member
     // This is what allows them to see the chat in their list
     const memberEntries = members.map((mId) => ({
       chatId: chat._id,
@@ -94,21 +28,15 @@ export const createChat = async (req, res) => {
       isFavorite: false,
     }));
     await ChatMember.insertMany(memberEntries);
-    console.log(`[CreateChat] ChatMember entries created for ${members.length} users.`);
 
-    // 4. Fetch the fully populated chat to return/emit
-    // We explicitly populate lastMessage -> sender to ensure the UI renders the preview correctly.
-    const populatedChat = await Chat.findById(chat._id)
-      .populate("members", "username displayName profilePicture")
-      .populate({
-          path: "lastMessage",
-          populate: { path: "sender", select: "username" }
-      });
+    const populatedChat = await Chat.findById(chat._id).populate(
+      "members",
+      "username displayName profilePicture",
+    );
 
-    // 5. Emit 'chat_created' event to all members via Socket.IO
+    // Emit to all members if it's a group
     const io = req.app.get("socketio");
     if (io && isGroup) {
-      // Construct a payload that matches what the client expects (similar to getChatsByUserId)
       const formattedChat = {
         _id: populatedChat._id,
         isGroup: populatedChat.isGroup,
@@ -118,18 +46,9 @@ export const createChat = async (req, res) => {
         unreadCount: 0,
         name: populatedChat.name,
         members: populatedChat.members,
-        lastMessage: populatedChat.lastMessage
-            ? {
-                _id: populatedChat.lastMessage._id,
-                text: populatedChat.lastMessage.text,
-                sender: populatedChat.lastMessage.sender?.username || "System",
-                createdAt: populatedChat.lastMessage.createdAt,
-              }
-            : null,
+        lastMessage: null,
         updatedAt: populatedChat.updatedAt,
       };
-
-      console.log(`[CreateChat] Broadcasting 'chat_created' event to ${members.length} members.`);
 
       // Emit to all members
       for (const memberId of members) {
@@ -139,10 +58,9 @@ export const createChat = async (req, res) => {
       }
     }
 
-    console.log(`[CreateChat] Success.\n`);
     return res.status(201).json(populatedChat);
   } catch (err) {
-    console.error(`[CreateChat] Error:`, err);
+    console.error(err);
     res.status(500).json({ error: "Failed to create chat." });
   }
 };
@@ -379,27 +297,6 @@ export const deleteChat = async (req, res) => {
     const chatId = req.params.chatId;
     const userId = req.body.userId;
 
-    // ----------------------------------------------------------------
-    //  DATA GOVERNANCE & RETENTION POLICY ENFORCEMENT
-    // ----------------------------------------------------------------
-    // Before deletion, check if this chat is subject to a "Legal Hold".
-    // This mocks a compliance check against an external policy engine.
-    const retentionPolicyCheck = {
-        isUnderInvestigation: false,
-        requiresArchival: false,
-        complianceRegion: 'EU_GDPR'
-    };
-
-    if (retentionPolicyCheck.isUnderInvestigation) {
-        console.warn(`[DeleteChat] BLOCKED: Chat ${chatId} is under active investigation.`);
-        await session.abortTransaction();
-        session.endSession();
-        return res.status(403).json({ error: "Operation denied by Compliance Policy." });
-    }
-
-    console.log(`[DeleteChat] Compliance check passed for Region: ${retentionPolicyCheck.complianceRegion}`);
-    // ----------------------------------------------------------------
-
     const chatMember = await ChatMember.findOne({ chatId, userId }).session(
       session,
     );
@@ -558,21 +455,6 @@ export const leaveGroup = async (req, res) => {
   try {
     const { chatId } = req.params;
     const { userId } = req.body;
-
-    // --- TRANSACTION TRACE START ---
-    const transactionId = `TXN-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-    console.log(`[LeaveGroup] [${transactionId}] Request received from User: ${userId}`);
-    
-    // Redundant User Verification Check (Security Pattern: Trust But Verify)
-    const requestingUser = await User.findById(userId).select('_id username').session(session);
-    if (!requestingUser) {
-         console.error(`[LeaveGroup] [${transactionId}] SECURITY ALERT: Ghost user ID.`);
-         await session.abortTransaction();
-         session.endSession();
-         return res.status(401).json({ error: "Unauthorized: User identification failed." });
-    }
-    console.log(`[LeaveGroup] [${transactionId}] User verified: ${requestingUser.username}`);
-    // -------------------------------
 
     // Find the chat and verify it's a group
     const chat = await Chat.findById(chatId)

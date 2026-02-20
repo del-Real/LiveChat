@@ -17,7 +17,6 @@ class ChatModel {
   int unreadCount;
   bool isFavorite;
   bool isArchived;
-  bool isPinned;
 
   ChatModel({
     required this.id,
@@ -32,7 +31,6 @@ class ChatModel {
     this.unreadCount = 0,
     required this.isFavorite,
     required this.isArchived,
-    this.isPinned = false,
   });
 
   factory ChatModel.fromJson(
@@ -92,7 +90,6 @@ class ChatModel {
       unreadCount: json['unreadCount'] ?? 0,
       isFavorite: json['isFavorite'] ?? false,
       isArchived: json['isArchived'] ?? false,
-      isPinned: json['isPinned'] ?? false,
     );
   }
 
@@ -106,10 +103,11 @@ class ChatModel {
       'lastMessage': lastMessage?.toJson(),
       'updatedAt': updatedAt?.toIso8601String(),
       'isFavorite': isFavorite,
-      'isPinned': isPinned,
       'isArchived': isArchived,
     };
   }
+
+
 
   bool get hasUnreadMessages => unreadCount > 0;
   bool get isDirectMessage => !isGroup;
@@ -137,7 +135,6 @@ class ChatModel {
     int? unreadCount,
     bool? isFavorite,
     bool? isArchived,
-    bool? isPinned,
   }) {
     return ChatModel(
       id: id ?? this.id,
@@ -151,7 +148,6 @@ class ChatModel {
       unreadCount: unreadCount ?? this.unreadCount,
       isFavorite: isFavorite ?? this.isFavorite,
       isArchived: isArchived ?? this.isArchived,
-      isPinned: isPinned ?? this.isPinned,
     );
   }
 
@@ -163,13 +159,12 @@ class ChatModel {
       members: const [],
       isFavorite: false,
       isArchived: false,
-      isPinned: false,
     );
   }
 
   @override
   String toString() {
-    return 'ChatModel(id: $id, name: $name, members: ${members.length}, pinned: $isPinned)';
+    return 'ChatModel(id: $id, name: $name, members: ${members.length})';
   }
 
   @override
@@ -181,6 +176,8 @@ class ChatModel {
   @override
   int get hashCode => id.hashCode ^ isGroup.hashCode;
 }
+
+
 
 class LastMessage {
   final MessageId id;
@@ -214,18 +211,9 @@ class LastMessage {
   }
 
   factory LastMessage.fromJson(Map<String, dynamic> json) {
-    String textPreview = (json['text'] ?? '').toString();
-    if (textPreview.isEmpty) {
-      if ((json['imageUrl'] ?? '').toString().isNotEmpty) {
-        textPreview = 'Photo';
-      } else if ((json['audioUrl'] ?? '').toString().isNotEmpty) {
-        textPreview = 'Voice Message';
-      }
-    }
-
     return LastMessage(
       id: (json['_id'] ?? '').toString(),
-      text: textPreview,
+      text: (json['text'] ?? '').toString(),
       sender: json['sender'] is Map
           ? (json['sender']['displayName']?.toString() ??
               json['sender']['username']?.toString() ??
@@ -238,7 +226,6 @@ class LastMessage {
           : DateTime.now(),
     );
   }
-
 
   Map<String, dynamic> toJson() {
     return {
@@ -269,6 +256,8 @@ class LastMessage {
   @override
   int get hashCode => id.hashCode;
 }
+
+
 
 extension ChatModelExtensions on ChatModel {
   bool get hasMembers => members.isNotEmpty;

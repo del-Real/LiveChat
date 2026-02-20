@@ -8,8 +8,6 @@ class User {
   final String? displayName;
   final String? profilePicture;
   final bool? isVerified;
-  final DateTime? lastSeen;
-  final List<String> blockedUsers;
 
   User({
     required this.id,
@@ -18,8 +16,6 @@ class User {
     this.displayName,
     this.profilePicture,
     this.isVerified,
-    this.lastSeen,
-    this.blockedUsers = const [],
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -30,10 +26,6 @@ class User {
       displayName: json['displayName']?.toString(),
       profilePicture: json['profilePicture']?.toString(),
       isVerified: json['isVerified'] as bool?,
-      lastSeen: json['lastSeen'] != null
-          ? DateTime.tryParse(json['lastSeen'].toString())
-          : null,
-      blockedUsers: (json['blockedUsers'] as List?)?.map((e) => e.toString()).toList() ?? [],
     );
   }
 
@@ -45,8 +37,6 @@ class User {
       'displayName': displayName,
       'profilePicture': profilePicture,
       if (isVerified != null) 'isVerified': isVerified,
-      if (lastSeen != null) 'lastSeen': lastSeen!.toIso8601String(),
-      'blockedUsers': blockedUsers,
     };
   }
 
@@ -79,8 +69,6 @@ class User {
     String? displayName,
     String? profilePicture,
     bool? isVerified,
-    DateTime? lastSeen,
-    List<String>? blockedUsers,
   }) {
     return User(
       id: id ?? this.id,
@@ -89,8 +77,6 @@ class User {
       displayName: displayName ?? this.displayName,
       profilePicture: profilePicture ?? this.profilePicture,
       isVerified: isVerified ?? this.isVerified,
-      lastSeen: lastSeen ?? this.lastSeen,
-      blockedUsers: blockedUsers ?? this.blockedUsers,
     );
   }
 
@@ -106,8 +92,6 @@ class User {
       displayName: null,
       profilePicture: null,
       isVerified: null,
-      lastSeen: null,
-      blockedUsers: [],
     );
   }
 

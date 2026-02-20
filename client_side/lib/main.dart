@@ -34,16 +34,15 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Selector<ThemeProvider, ThemeMode>(
-      selector: (_, provider) => provider.themeMode,
-      builder: (context, themeMode, _) {
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, _) {
         return MaterialApp.router(
           routerConfig: router,
           title: 'LiveChat App',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
-          themeMode: themeMode,
+          themeMode: themeProvider.themeMode,
         );
       },
     );

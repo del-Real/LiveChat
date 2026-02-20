@@ -8,19 +8,11 @@ import 'package:namer_app/services/auth_service.dart';
 class ContactService {
   final AuthService _authService = AuthService();
 
+  // Send a contact request to a user by username
   Future<String> sendContactRequest(String username) async {
     try {
-
-      if (username.contains(RegExp(r'[<>;]'))) {
-         throw Exception("Invalid characters in username.");
-      }
-
       final user = await _authService.getUser();
-      if (user == null) {
-        throw Exception('User session not found');
-      }
-
-
+      if (user == null) throw Exception('User session not found');
 
       final url = Uri.parse('${ApiConfig.baseUrl}/contacts/request');
 
@@ -37,8 +29,11 @@ class ContactService {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         return responseBody['message'] ?? 'Contact request sent';
-      } else if (response.statusCode == 400 || response.statusCode == 404) {
-        throw Exception(responseBody['message'] ?? 'User not found');
+      } else if (response.statusCode == 400) {
+        // Handle specific error cases
+        throw Exception(responseBody['message'] ?? 'Bad request');
+      } else if (response.statusCode == 404) {
+        throw Exception('User not found');
       } else {
         throw Exception(responseBody['message'] ?? 'Failed to send request');
       }
@@ -51,7 +46,6 @@ class ContactService {
     try {
       final user = await _authService.getUser();
       if (user == null) throw Exception('User session not found');
-
 
       final url =
           Uri.parse('${ApiConfig.baseUrl}/contacts/get_contacts/${user.id}');
@@ -86,30 +80,6 @@ class ContactService {
       } else {
         final errorBody = jsonDecode(response.body);
         throw Exception(errorBody['message'] ?? 'Failed to load requests');
-      }
-    } catch (e) {
-      throw Exception('Connection error: $e');
-    }
-  }
-
-  // Fetch requests sent by the current user
-  Future<List<ContactModel>> getSentContactRequests() async {
-    try {
-      final user = await _authService.getUser();
-      if (user == null) throw Exception('User session not found');
-
-
-      final url =
-          Uri.parse('${ApiConfig.baseUrl}/contacts/sent_requests/${user.id}');
-
-      final response = await http.get(url);
-
-      if (response.statusCode == 200) {
-        final List<dynamic> jsonList = jsonDecode(response.body);
-        return jsonList.map((json) => ContactModel.fromJson(json)).toList();
-      } else {
-        final errorBody = jsonDecode(response.body);
-        throw Exception(errorBody['message'] ?? 'Failed to load sent requests');
       }
     } catch (e) {
       throw Exception('Connection error: $e');

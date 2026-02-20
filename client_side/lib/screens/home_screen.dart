@@ -68,13 +68,14 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             ListTile(
               leading: Icon(
-                  chat.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                  chat.isFavorite ? Icons.push_pin : Icons.push_pin_outlined,
                   color: Colors.tealAccent),
-              title: Text(chat.isPinned ? 'Unpin Chat' : 'Pin Chat',
+              title: Text(chat.isFavorite ? 'Unpin Chat' : 'Pin Chat',
                   style: TextStyle(
                       color: Theme.of(context).textTheme.bodyLarge?.color)),
               onTap: () {
-                chatService.togglePinnedChat(chat.id, !chat.isPinned);
+                chatService.updateChatStatus(
+                    chat.id, {'isFavorite': !chat.isFavorite});
                 Navigator.pop(context);
               },
             ),
@@ -160,7 +161,25 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  List<ChatModel> _getSortedChats(List<ChatModel> chats) {
+    final favorites = chats.where((c) => c.isFavorite).toList();
+    final regular = chats.where((c) => !c.isFavorite).toList();
 
+    void sortByDate(List<ChatModel> list) {
+      list.sort((a, b) {
+        // Use lastMessage date, or updatedAt, or current time for new chats
+        DateTime dateA =
+            a.lastMessage?.createdAt ?? a.updatedAt ?? DateTime.now();
+        DateTime dateB =
+            b.lastMessage?.createdAt ?? b.updatedAt ?? DateTime.now();
+        return dateB.compareTo(dateA);
+      });
+    }
+
+    sortByDate(favorites);
+    sortByDate(regular);
+    return [...favorites, ...regular];
+  }
 
   void _showSnackBar(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -174,18 +193,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final allServiceChats = context.select<ChatService, List<ChatModel>>((s) => s.chats);
+    // Check updates from ChatService
+    final chatService = context.watch<ChatService>();
+    final allServiceChats = chatService.chats;
 
-    final query = _searchController.text.trim().toLowerCase();
-    final filtered = query.isEmpty 
-        ? allServiceChats 
-        : allServiceChats.where((c) => c.name.toLowerCase().contains(query)).toList();
+    // Filter based on search
+    final searchQuery = _searchController.text.toLowerCase();
+    final filteredChats = searchQuery.isEmpty
+        ? allServiceChats
+        : allServiceChats
+            .where((chat) => chat.name.toLowerCase().contains(searchQuery))
+            .toList();
 
-    // filtered is already sorted by ChatService
-    final displayChats = filtered.where((c) => !c.isArchived).toList();
-    
-    final archivedCount = filtered.where((c) => c.isArchived).length;
-
+    // Separate archived and active chats
+    final archivedCount = filteredChats.where((c) => c.isArchived).length;
+    final activeChats = filteredChats.where((c) => !c.isArchived).toList();
+    final displayChats = _getSortedChats(activeChats);
 
     return Scaffold(
       body: SafeArea(
@@ -248,9 +271,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   _showChatOptions(
                                                       context, chat),
                                               onToggleFavorite: () =>
-                                                  context.read<ChatService>().togglePinnedChat(
-                                                      chat.id, !chat.isPinned),
-                                              onToggleArchive: () => context.read<ChatService>()
+                                                  chatService.updateChatStatus(
+                                                      chat.id, {
+                                                'isFavorite': !chat.isFavorite
+                                              }),
+                                              onToggleArchive: () => chatService
                                                   .updateChatStatus(chat.id, {
                                                 'isArchived': !chat.isArchived
                                               }),
@@ -280,14 +305,12 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: const EdgeInsets.only(bottom: 12.0),
       child: ListTile(
         leading: const Icon(Icons.archive_outlined, color: Colors.grey),
-        title: Text('Archived',
-            style: TextStyle(
-                color: Theme.of(context).textTheme.titleLarge?.color,
-                fontWeight: FontWeight.bold)),
+        title: const Text('Archived',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: const Color(0x338A2BE2), 
+            color: AppPrimaryColor.withOpacity(0.2),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text('$count',
@@ -309,10 +332,12 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.all(40.0),
           child: Column(
             children: [
-              const Icon(Icons.search_off, size: 64, color: Color(0x4D808080)),
+              Icon(Icons.search_off,
+                  size: 64, color: Colors.white.withOpacity(0.3)),
               const SizedBox(height: 16),
-              const Text('No chats found',
-                  style: TextStyle(color: Color(0x80808080), fontSize: 16)),
+              Text('No chats found',
+                  style: TextStyle(
+                      color: Colors.white.withOpacity(0.5), fontSize: 16)),
             ],
           ),
         ),
@@ -324,21 +349,23 @@ class _HomeScreenState extends State<HomeScreen> {
     return ListView(
       children: [
         const SizedBox(height: 60),
-        const Icon(Icons.chat_bubble_outline, size: 80, color: Color(0x4D808080)),
+        Icon(Icons.chat_bubble_outline,
+            size: 80, color: Colors.white.withOpacity(0.3)),
         const SizedBox(height: 24),
         Text('No chats yet',
             textAlign: TextAlign.center,
             style: TextStyle(
-                color: Theme.of(context).textTheme.titleLarge?.color,
+                color: Colors.white.withOpacity(0.7),
                 fontSize: 20,
                 fontWeight: FontWeight.w500)),
         const SizedBox(height: 12),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 40.0),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40.0),
           child: Text(
               'Start a conversation by creating a group or connecting with friends',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0x66808080), fontSize: 14)),
+              style: TextStyle(
+                  color: Colors.white.withOpacity(0.4), fontSize: 14)),
         ),
       ],
     );
